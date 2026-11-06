@@ -162,7 +162,6 @@
                     <button id="btnClearDB" class="text-[10px] bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded transition">Limpiar</button>
                 </div>
                 <p class="text-[11px] text-slate-400 mb-3">Ensayos guardados localmente mediante IndexedDB (persistencia web).</p>
-                <button id="btnSeed" type="button" class="w-full mb-3 text-[11px] bg-brand-500/10 hover:bg-brand-500/20 text-brand-400 border border-brand-500/20 px-2 py-1.5 rounded transition">Cargar 5 escenarios de ejemplo (hipotéticos)</button>
                 
                 <div id="dbList" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
                     <!-- Dynamic database list items -->
@@ -1018,7 +1017,6 @@
 
             // Trigger initial calculation
             const form = document.getElementById('simForm');
-            document.getElementById('btnSeed').addEventListener('click', async () => { await sembrarEjemplos(); await refreshDBList(); });
             window.__noGuardar = true;
             if(form) form.dispatchEvent(new Event('submit'));
             window.__noGuardar = false;
