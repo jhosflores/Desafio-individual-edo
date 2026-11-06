@@ -95,7 +95,10 @@
             <p class="text-xs leading-relaxed text-emerald-950">
                 Un refugio comunitario necesita anticipar cuántas mascotas tendrá que atender para organizar espacio, alimento y campañas de adopción. Este modelo representa los ingresos semanales constantes y las adopciones proporcionales a la población actual.
             </p>
-            <p class="mt-2 text-xs leading-relaxed text-emerald-950"><strong>Pregunta guía:</strong> ¿Cómo cambia la población del refugio durante el periodo elegido y qué tan cerca están las aproximaciones de Heun y RK4 de la solución exacta?</p>
+            <p class="mt-2 text-xs leading-relaxed text-emerald-950"><strong>Beneficiarios:</strong> las mascotas rescatadas y las familias de la comunidad que las adoptan.</p>
+            <p class="mt-2 text-xs leading-relaxed text-emerald-950"><strong>Pregunta guía:</strong> ¿La población del refugio se mantiene por debajo de su capacidad C durante el periodo elegido? Si no, ¿qué tasa de adopción k mínima se necesita? Además: ¿qué tan cerca están Heun y RK4 de la solución exacta?</p>
+            <p class="mt-2 text-xs leading-relaxed text-emerald-950"><strong>Meta cuantificable:</strong> que y(t) ≤ C en todo el periodo simulado (equivale a k ≥ R/C a largo plazo). Los parámetros y₀, R, k y C son <strong>hipotéticos</strong>.</p>
+            <div id="metaBox" class="mt-3 text-xs font-semibold rounded-xl px-3 py-2 border bg-white border-emerald-200 text-emerald-950">Calculando meta…</div>
         </section>
 
         <!-- Sidebar / Control Panel (4 Cols) -->
@@ -159,6 +162,7 @@
                     <button id="btnClearDB" class="text-[10px] bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded transition">Limpiar</button>
                 </div>
                 <p class="text-[11px] text-slate-400 mb-3">Ensayos guardados localmente mediante IndexedDB (persistencia web).</p>
+                <button id="btnSeed" type="button" class="w-full mb-3 text-[11px] bg-brand-500/10 hover:bg-brand-500/20 text-brand-400 border border-brand-500/20 px-2 py-1.5 rounded transition">Cargar 5 escenarios de ejemplo (hipotéticos)</button>
                 
                 <div id="dbList" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
                     <!-- Dynamic database list items -->
@@ -216,6 +220,11 @@
                     <div>
                         <label class="block text-xs font-bold text-slate-700 mb-1">Tiempo Simulación \(t_{max}\)</label>
                         <input type="number" id="paramTFinal" value="20" step="any" min="0.05" max="100" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Capacidad del refugio \(C\) (mascotas)</label>
+                        <input type="number" id="paramC" value="40" step="any" min="1" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500">
                     </div>
 
                     <div class="flex items-end">
@@ -371,8 +380,8 @@
                         
                         <div class="border-t border-slate-800 pt-3 text-slate-300">
                             <p class="font-sans font-bold text-brand-300 mb-1">Comprobación por Sustitución Directa:</p>
-                            <p>• Derivada exactitud: \(\frac{dy}{dt} = -k\left(y_0 - \frac{R}{k}\right)e^{-kt}\)</p>
-                            <p>• Sustituyendo en el lado derecho (\(R - k y\)): \(R - k\left[\frac{R}{R/k} + \left(y_0 - \frac{R}{k}\right)e^{-kt}\right] = -k\left(y_0 - \frac{R}{k}\right)e^{-kt}\)</p>
+                            <p>• Derivada de la solución exacta: \(\frac{dy}{dt} = -k\left(y_0 - \frac{R}{k}\right)e^{-kt}\)</p>
+                            <p>• Sustituyendo en el lado derecho (\(R - k y\)): \(R - k\left[\frac{R}{k} + \left(y_0 - \frac{R}{k}\right)e^{-kt}\right] = -k\left(y_0 - \frac{R}{k}\right)e^{-kt}\)</p>
                             <p class="text-cyan-400 font-bold">\(\therefore \frac{dy}{dt} = R - ky\) ¡Verifica formalmente la EDO y la Condición Inicial!</p>
                         </div>
                     </div>
@@ -442,7 +451,7 @@
                     </div>
                     <div class="border border-amber-200 bg-amber-50 p-4 rounded-xl text-amber-950">
                         <h4 class="font-bold mb-1 text-xs uppercase tracking-wider">Supuestos y limitaciones</h4>
-                        <p class="leading-relaxed">La simulación supone que los ingresos (R) y la tasa de adopción (k) permanecen constantes, que no hay nacimientos dentro del refugio y que las adopciones son proporcionales a la población. No incorpora capacidad máxima, cambios estacionales ni datos observados; por ello, los parámetros deben interpretarse como escenarios de estudio y los resultados no son predicciones comprobadas.</p>
+                        <p class="leading-relaxed">La simulación supone que los ingresos (R) y la tasa de adopción (k) permanecen constantes, que no hay nacimientos dentro del refugio y que las adopciones son proporcionales a la población. No incorpora la capacidad C dentro de la dinámica (solo la usa como umbral de la meta), cambios estacionales ni datos observados; por ello, los parámetros (y₀, R, k y C) son hipotéticos, elegidos como escenarios de estudio, y los resultados no son predicciones comprobadas con datos reales.</p>
                     </div>
                 </div>
 
@@ -526,6 +535,23 @@
 
         const localDB = new LocalDatabase();
 
+        let dbCache = [];
+        function fmtErr(x) {
+            const v = Number(x);
+            if (!Number.isFinite(v)) return '—';
+            if (v === 0) return '0';
+            const dec = Math.min(12, Math.max(4, -Math.floor(Math.log10(v)) + 1));
+            return v.toFixed(dec);
+        }
+        function escapeHtml(t) {
+            return String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+        function metaEval(y0, R, k, T, C) {
+            const eq = R / k, yT = exactAnalytical(T, y0, R, k), maxY = Math.max(y0, yT);
+            const tCruce = (y0 < C && eq > C) ? Math.log((eq - y0) / (eq - C)) / k : null;
+            return { eq, yT, maxY, cumple: maxY <= C + 1e-9, tCruce, kMin: R / C };
+        }
+
         // --- MATH ENGINE ---
         function f(t, y, R, k) {
             return R - (k * y);
@@ -559,10 +585,10 @@
                     yExact: parseFloat(yExact.toFixed(4)),
                     yHeun: parseFloat(yHeun.toFixed(4)),
                     yRK4: parseFloat(yRK4.toFixed(4)),
-                    errAbsHeun: parseFloat(errAbsHeun.toFixed(4)),
-                    errPctHeun: parseFloat(errPctHeun.toFixed(4)),
-                    errAbsRK4: parseFloat(errAbsRK4.toFixed(4)),
-                    errPctRK4: parseFloat(errPctRK4.toFixed(4))
+                    errAbsHeun: errAbsHeun,
+                    errPctHeun: errPctHeun,
+                    errAbsRK4: errAbsRK4,
+                    errPctRK4: errPctRK4
                 });
 
                 if (t >= tFinal - 1e-10) break;
@@ -698,8 +724,8 @@
             document.getElementById('kpiEquilibrio').innerText = `${eqVal}`;
             document.getElementById('kpiFinalExacto').innerText = `${finalPoint.yExact}`;
 
-            const maxErrHeun = Math.max(...results.map(r => r.errPctHeun)).toFixed(3);
-            const maxErrRK4 = Math.max(...results.map(r => r.errPctRK4)).toFixed(4);
+            const maxErrHeun = fmtErr(Math.max(...results.map(r => r.errPctHeun)));
+            const maxErrRK4 = fmtErr(Math.max(...results.map(r => r.errPctRK4)));
 
             document.getElementById('kpiErrorHeun').innerText = `${maxErrHeun} %`;
             document.getElementById('kpiErrorRK4').innerText = `${maxErrRK4} %`;
@@ -715,10 +741,10 @@
                     <td class="px-2.5 py-2 font-mono bg-blue-50/40 text-blue-900 font-bold">${r.yExact}</td>
                     <td class="px-2.5 py-2 font-mono bg-amber-50/40 text-amber-900">${r.yHeun}</td>
                     <td class="px-2.5 py-2 font-mono bg-emerald-50/40 text-emerald-900">${r.yRK4}</td>
-                    <td class="px-2.5 py-2 font-mono text-amber-800 font-medium">${r.errAbsHeun}</td>
-                    <td class="px-2.5 py-2 font-mono text-amber-700 font-medium">${r.errPctHeun}%</td>
-                    <td class="px-2.5 py-2 font-mono text-emerald-800 font-medium">${r.errAbsRK4}</td>
-                    <td class="px-2.5 py-2 font-mono text-emerald-700 font-medium">${r.errPctRK4}%</td>
+                    <td class="px-2.5 py-2 font-mono text-amber-800 font-medium">${fmtErr(r.errAbsHeun)}</td>
+                    <td class="px-2.5 py-2 font-mono text-amber-700 font-medium">${fmtErr(r.errPctHeun)}%</td>
+                    <td class="px-2.5 py-2 font-mono text-emerald-800 font-medium">${fmtErr(r.errAbsRK4)}</td>
+                    <td class="px-2.5 py-2 font-mono text-emerald-700 font-medium">${fmtErr(r.errPctRK4)}%</td>
                 </tr>
             `).join('');
 
@@ -727,10 +753,10 @@
                 document.getElementById('valH1').innerText = params.h.toFixed(2);
                 document.getElementById('valH2').innerText = params.h2.toFixed(2);
 
-                const h1HeunMax = Math.max(...results.map(r => r.errPctHeun)).toFixed(4);
-                const h1RK4Max = Math.max(...results.map(r => r.errPctRK4)).toFixed(4);
-                const h2HeunMax = Math.max(...resultsH2.map(r => r.errPctHeun)).toFixed(4);
-                const h2RK4Max = Math.max(...resultsH2.map(r => r.errPctRK4)).toFixed(4);
+                const h1HeunMax = fmtErr(Math.max(...results.map(r => r.errPctHeun)));
+                const h1RK4Max = fmtErr(Math.max(...results.map(r => r.errPctRK4)));
+                const h2HeunMax = fmtErr(Math.max(...resultsH2.map(r => r.errPctHeun)));
+                const h2RK4Max = fmtErr(Math.max(...resultsH2.map(r => r.errPctRK4)));
 
                 document.getElementById('h1ErrHeun').innerText = `${h1HeunMax}%`;
                 document.getElementById('h1ErrRK4').innerText = `${h1RK4Max}%`;
@@ -753,6 +779,23 @@
                 Con un tamaño de paso <strong>h = ${params.h} semanas</strong>, el método de <strong>RK4</strong> registró un error relativo porcentual máximo de <strong>${maxErrRK4}%</strong>, demostrando superioridad en estabilidad sobre <strong>Heun (${maxErrHeun}%)</strong>.
             `;
 
+            const Cmeta = params.C ?? parseFloat(document.getElementById('paramC').value);
+            const m = metaEval(params.y0, params.R, params.k, params.tFinal, Cmeta);
+            const dep = `Para que el equilibrio R/k no supere C se necesita <strong>k ≥ R/C = ${m.kMin.toFixed(2)} sem⁻¹</strong> (ahora k = ${params.k}).`;
+            let metaHtml;
+            if (m.cumple) {
+                metaHtml = `✅ <strong>Meta cumplida:</strong> en ${params.tFinal} semanas la población máxima es ${m.maxY.toFixed(1)} ≤ C = ${Cmeta} mascotas.` + (m.eq > Cmeta ? ` Aun así, a largo plazo tiende a ${m.eq.toFixed(1)} > C. ${dep}` : '');
+            } else {
+                const cuando = m.tCruce !== null ? ` y supera la capacidad hacia la semana <strong>${m.tCruce.toFixed(1)}</strong>` : ' (ya parte por encima de la capacidad)';
+                metaHtml = `⚠️ <strong>Meta NO cumplida:</strong> la población llega a ${m.maxY.toFixed(1)} > C = ${Cmeta}${cuando}. ${dep}`;
+            }
+            const box = document.getElementById('metaBox');
+            if (box) {
+                box.innerHTML = metaHtml;
+                box.className = 'mt-3 text-xs font-semibold rounded-xl px-3 py-2 border ' + (m.cumple ? 'bg-emerald-100 border-emerald-300 text-emerald-950' : 'bg-amber-50 border-amber-300 text-amber-950');
+            }
+            document.getElementById('conclusionText').innerHTML += '<br>' + metaHtml;
+
             if (window.MathJax) {
                 MathJax.typesetPromise();
             }
@@ -762,19 +805,20 @@
             const listContainer = document.getElementById('dbList');
             try {
                 const items = await localDB.obtenerTodas();
+                dbCache = items;
                 if (items.length === 0) {
-                    listContainer.innerHTML = `<p class="text-slate-400 text-center py-4 text-xs">No hay simulaciones guardadas.</p>`;
+                    listContainer.innerHTML = `<p class="text-slate-300 text-center py-4 text-xs">No hay simulaciones guardadas.</p>`;
                     return;
                 }
 
                 listContainer.innerHTML = items.map(item => `
-                    <div class="p-2.5 border border-slate-200/80 rounded-xl bg-slate-50/50 hover:bg-brand-50/40 transition-all cursor-pointer text-slate-700 flex justify-between items-center group" onclick="cargarSimulacionDB(${item.y0}, ${item.R}, ${item.k}, ${item.h}, ${item.tFinal}, '${item.nombre}')">
+                    <div class="p-2.5 border border-slate-300 rounded-xl bg-slate-100 hover:bg-emerald-100 transition-all cursor-pointer text-slate-800 flex justify-between items-center gap-2 group" onclick="cargarSimulacionDB(${item.id})">
                         <div>
-                            <p class="font-bold text-slate-900 text-xs group-hover:text-brand-700 transition">${item.nombre}</p>
-                            <p class="text-[10px] text-slate-400 font-mono">y₀:${item.y0} | R:${item.R} | k:${item.k} | h:${item.h}</p>
+                            <p class="font-bold text-slate-900 text-sm group-hover:text-emerald-800 transition">${escapeHtml(item.nombre)}</p>
+                            <p class="text-[11px] text-slate-700 font-mono">y₀:${item.y0} | R:${item.R} | k:${item.k} | h:${item.h}${item.C !== undefined ? ' | C:' + item.C + (item.metaCumple ? ' ✅' : ' ⚠️') : ''}</p>
                         </div>
                         <div class="text-right">
-                            <span class="inline-block px-2 py-0.5 rounded-full bg-brand-100 text-brand-800 font-mono text-[10px] font-bold">RK4: ${item.maxErrRK4}%</span>
+                            <span class="inline-block px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-900 font-mono text-[11px] font-bold whitespace-nowrap">RK4: ${fmtErr(item.maxErrRK4)}%</span>
                         </div>
                     </div>
                 `).join('');
@@ -783,17 +827,43 @@
             }
         }
 
-        function cargarSimulacionDB(y0, R, k, h, tFinal, nombre) {
-            document.getElementById('nombreEnsayo').value = nombre;
-            document.getElementById('paramY0').value = y0;
-            document.getElementById('paramR').value = R;
-            document.getElementById('paramK').value = k;
-            document.getElementById('paramH').value = h;
-            document.getElementById('stepDisplay').innerText = `h₁ = ${h.toFixed(2)}`;
-            document.getElementById('paramTFinal').value = tFinal;
+        function cargarSimulacionDB(id) {
+            const it = dbCache.find(x => x.id === id);
+            if (!it) return;
+            const h2 = it.h2 ?? 0.1, C = it.C ?? 40;
+            document.getElementById('nombreEnsayo').value = it.nombre;
+            document.getElementById('paramY0').value = it.y0;
+            document.getElementById('paramR').value = it.R;
+            document.getElementById('paramK').value = it.k;
+            document.getElementById('paramH').value = it.h;
+            document.getElementById('paramH2').value = h2;
+            document.getElementById('paramC').value = C;
+            document.getElementById('stepDisplay').innerText = `h₁ = ${it.h.toFixed(2)}`;
+            document.getElementById('stepDisplay2').innerText = `h₂ = ${h2.toFixed(2)}`;
+            document.getElementById('paramTFinal').value = it.tFinal;
+            const results = solveEDO(it.y0, it.R, it.k, it.h, it.tFinal);
+            const resultsH2 = solveEDO(it.y0, it.R, it.k, h2, it.tFinal);
+            updateUI(results, { y0: it.y0, R: it.R, k: it.k, h: it.h, h2, tFinal: it.tFinal, C }, resultsH2);
+        }
 
-            const results = solveEDO(y0, R, k, h, tFinal);
-            updateUI(results, { y0, R, k, h, tFinal });
+        async function sembrarEjemplos() {
+            const C = 40, T = 20;
+            const ej = [
+                ['Ejemplo 1: base (k=0.2)', 15, 12, 0.2, 0.5, 0.1],
+                ['Ejemplo 2: campaña de adopción (k=0.4)', 15, 12, 0.4, 0.5, 0.1],
+                ['Ejemplo 3: adopción intensiva (k=0.5)', 15, 12, 0.5, 1, 0.25],
+                ['Ejemplo 4: menos rescates (R=8)', 15, 8, 0.2, 0.5, 0.1],
+                ['Ejemplo 5: refugio saturado (y₀=55)', 55, 12, 0.4, 1, 0.25]
+            ];
+            for (const [nombre, y0, R, k, h, h2] of ej.slice().reverse()) {
+                const r = solveEDO(y0, R, k, h, T);
+                await localDB.guardarSimulacion({
+                    fecha: new Date().toISOString(), nombre, y0, R, k, h, h2, tFinal: T, C,
+                    metaCumple: metaEval(y0, R, k, T, C).cumple,
+                    maxErrHeun: fmtErr(Math.max(...r.map(x => x.errPctHeun))),
+                    maxErrRK4: fmtErr(Math.max(...r.map(x => x.errPctRK4)))
+                });
+            }
         }
 
         // Export Functions
@@ -815,6 +885,7 @@
         // --- INITIALIZATION & EVENT HANDLERS ---
         window.addEventListener('DOMContentLoaded', async () => {
             await localDB.init();
+            if ((await localDB.obtenerTodas()).length === 0) await sembrarEjemplos();
             initChart();
 
             document.getElementById('paramH').addEventListener('input', (e) => {
@@ -834,9 +905,10 @@
                 const h = parseFloat(document.getElementById('paramH').value);
                 const h2 = parseFloat(document.getElementById('paramH2').value);
                 const tFinal = parseFloat(document.getElementById('paramTFinal').value);
+                const C = parseFloat(document.getElementById('paramC').value);
 
-                if (![y0, R, k, h, h2, tFinal].every(Number.isFinite) || y0 < 0 || R < 0 || k <= 0 || h <= 0 || h2 <= 0 || tFinal <= 0) {
-                    alert('Revisa los datos: y₀ y R deben ser no negativos; k, h₁, h₂ y el tiempo deben ser mayores que cero.');
+                if (![y0, R, k, h, h2, tFinal, C].every(Number.isFinite) || y0 < 0 || R < 0 || k <= 0 || h <= 0 || h2 <= 0 || tFinal <= 0 || C <= 0) {
+                    alert('Revisa los datos: y₀ y R deben ser no negativos; k, h₁, h₂, C y el tiempo deben ser mayores que cero.');
                     return;
                 }
                 if (Math.abs(h - h2) < 1e-9) {
@@ -846,21 +918,22 @@
 
                 const results = solveEDO(y0, R, k, h, tFinal);
                 const resultsH2 = solveEDO(y0, R, k, h2, tFinal);
-                const params = { y0, R, k, h, h2, tFinal };
+                const params = { y0, R, k, h, h2, tFinal, C };
 
                 updateUI(results, params, resultsH2);
 
-                const maxErrHeun = Math.max(...results.map(r => r.errPctHeun)).toFixed(3);
-                const maxErrRK4 = Math.max(...results.map(r => r.errPctRK4)).toFixed(4);
+                const maxErrHeun = fmtErr(Math.max(...results.map(r => r.errPctHeun)));
+                const maxErrRK4 = fmtErr(Math.max(...results.map(r => r.errPctRK4)));
 
-                await localDB.guardarSimulacion({
+                if (!window.__noGuardar) {
+                    await localDB.guardarSimulacion({
                     fecha: new Date().toISOString(),
                     nombre,
-                    y0, R, k, h, tFinal,
+                    y0, R, k, h, h2, tFinal, C, metaCumple: metaEval(y0, R, k, tFinal, C).cumple,
                     maxErrHeun, maxErrRK4
                 });
-
-                await refreshDBList();
+                    await refreshDBList();
+                }
             });
 
             document.getElementById('btnClearDB').addEventListener('click', async () => {
@@ -945,7 +1018,11 @@
 
             // Trigger initial calculation
             const form = document.getElementById('simForm');
+            document.getElementById('btnSeed').addEventListener('click', async () => { await sembrarEjemplos(); await refreshDBList(); });
+            window.__noGuardar = true;
             if(form) form.dispatchEvent(new Event('submit'));
+            window.__noGuardar = false;
+            await refreshDBList();
         });
     </script>
 </body>
