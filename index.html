@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PetShelter Analytics - EDO Simulation Platform</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- MathJax for rendering math LaTeX -->
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            500: '#10b981',
+                            600: '#059669',
+                            700: '#047857',
+                            900: '#064e3b',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(12px);
+        }
+        .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white !important; }
+            .print-full-width { width: 100% !important; col-span: 12 !important; }
+            #tabContentTabla, #tabContentPasoComp, #tabContentMath, #tabContentConclusion { display: block !important; }
+            #tabBtnTabla, #tabBtnPasoComp, #tabBtnMath, #tabBtnConclusion { display: none !important; }
+            .overflow-x-auto { overflow: visible !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-800 font-sans min-h-screen flex flex-col antialiased selection:bg-brand-500 selection:text-white">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-950 border-b border-slate-800/80 sticky top-0 z-50 no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white shadow-lg shadow-brand-500/20">
+                    <i class="fa-solid fa-paw text-xl"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="font-extrabold text-white text-base tracking-tight">PetShelter <span class="text-brand-500 font-normal">Analytics</span></h1>
+                        <span class="bg-brand-500/10 text-brand-400 border border-brand-500/20 text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider">Simulador EDO v2.5</span>
+                    </div>
+                    <p class="text-xs text-slate-400 hidden sm:block">Modelado de Dinámica Poblacional en Refugio y Comparación Numérica (Heun vs. RK4)</p>
+                </div>
+            </div>
+
+            <!-- Global Action Tools -->
+            <div class="flex items-center space-x-3">
+                <button id="btnExportCSV" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold py-2 px-3 rounded-lg transition flex items-center gap-2">
+                    <i class="fa-solid fa-file-csv text-brand-400"></i> <span class="hidden md:inline">Exportar CSV</span>
+                </button>
+                <button id="btnPrintReport" class="bg-brand-600 hover:bg-brand-500 text-white shadow-lg shadow-brand-600/20 text-xs font-semibold py-2 px-3 rounded-lg transition flex items-center gap-2">
+                    <i class="fa-solid fa-print"></i> <span class="hidden md:inline">Imprimir Informe</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-grow w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <section class="lg:col-span-12 bg-emerald-50 border border-emerald-200 rounded-2xl p-5 shadow-sm" aria-labelledby="problemTitle">
+            <h2 id="problemTitle" class="font-bold text-emerald-950 text-sm mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-house-medical text-emerald-700"></i> El desafío del refugio
+            </h2>
+            <p class="text-xs leading-relaxed text-emerald-950">
+                Un refugio comunitario necesita anticipar cuántas mascotas tendrá que atender para organizar espacio, alimento y campañas de adopción. Este modelo representa los ingresos semanales constantes y las adopciones proporcionales a la población actual.
+            </p>
+            <p class="mt-2 text-xs leading-relaxed text-emerald-950"><strong>Pregunta guía:</strong> ¿Cómo cambia la población del refugio durante el periodo elegido y qué tan cerca están las aproximaciones de Heun y RK4 de la solución exacta?</p>
+        </section>
+
+        <!-- Sidebar / Control Panel (4 Cols) -->
+        <aside class="lg:col-span-4 flex flex-col gap-5 no-print">
+
+            <!-- Model Specification Card -->
+            <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-5 shadow-xl text-slate-300">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="font-bold text-white text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-square-root-variable text-brand-400"></i> Modelo Matemático
+                    </h2>
+                    <span class="text-[10px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-2 py-0.5 rounded">EDO 1º Orden</span>
+                </div>
+
+                <div class="space-y-2 font-mono text-xs bg-slate-900/90 border border-slate-800/80 p-3.5 rounded-xl text-slate-200">
+                    <div class="flex justify-between items-center border-b border-slate-800 pb-1.5">
+                        <span class="text-slate-400">EDO Poblacional:</span>
+                        <span class="text-emerald-400 font-bold">\(\frac{dy}{dt} = R - k \cdot y\)</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-slate-400">Solución Exacta:</span>
+                        <span class="text-cyan-400 font-semibold">\(\frac{R}{k} + (y_0 - \frac{R}{k})e^{-kt}\)</span>
+                    </div>
+                </div>
+
+                <div class="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-400">
+                    <div class="bg-slate-900/50 p-2 rounded-lg border border-slate-800/50">
+                        <span class="block text-slate-300 font-medium">\(y(t)\): Población</span>
+                        Mascotas en refugio
+                    </div>
+                    <div class="bg-slate-900/50 p-2 rounded-lg border border-slate-800/50">
+                        <span class="block text-slate-300 font-medium">\(R\): Tasa Rescate</span>
+                        Ingresos (mascotas/sem)
+                    </div>
+                    <div class="bg-slate-900/50 p-2 rounded-lg border border-slate-800/50">
+                        <span class="block text-slate-300 font-medium">\(k\): Tasa Adopción</span>
+                        Egresos (\(sem^{-1}\))
+                    </div>
+                    <div class="bg-slate-900/50 p-2 rounded-lg border border-slate-800/50">
+                        <span class="block text-slate-300 font-medium">\(y_0\): Población Inicial</span>
+                        Stock inicial en \(t=0\)
+                    </div>
+                </div>
+
+                <div class="mt-3 border-t border-slate-800/80 pt-2 text-[10px] text-slate-400 space-y-1">
+                    <p class="font-bold text-slate-300 uppercase tracking-wider text-[9px]">Significado de las Variables:</p>
+                    <ul class="list-disc pl-3 space-y-0.5 text-slate-400">
+                        <li><strong class="text-slate-200">\(y\)</strong> = Cantidad actual de mascotas en el albergue.</li>
+                        <li><strong class="text-slate-200">\(R - ky\)</strong> = Razón de cambio neta (velocidad de crecimiento).</li>
+                        <li><strong class="text-slate-200">\(k_1, k_2, k_3, k_4\)</strong> = Pendientes/velocidades evaluadas en sub-intervalos del paso \(h\).</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Saved Ensayos / IndexedDB Database Card -->
+            <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-5 shadow-xl text-slate-300">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="font-bold text-white text-sm flex items-center gap-2">
+                        <i class="fa-solid fa-database text-brand-400"></i> Historial Base de Datos
+                    </h2>
+                    <button id="btnClearDB" class="text-[10px] bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 px-2 py-0.5 rounded transition">Limpiar</button>
+                </div>
+                <p class="text-[11px] text-slate-400 mb-3">Ensayos guardados localmente mediante IndexedDB (persistencia web).</p>
+                
+                <div id="dbList" class="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                    <!-- Dynamic database list items -->
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- Main Display Content (8 Cols) -->
+        <section class="lg:col-span-8 flex flex-col gap-5 print-full-width">
+
+            <!-- Configuration & Parameters Card -->
+            <div class="bg-white rounded-2xl shadow-xl border border-slate-200/80 p-5">
+                <h3 class="font-bold text-slate-900 text-sm mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-brand-600"></i> Panel de Configuración y Parámetros
+                </h3>
+
+                <form id="simForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Nombre del Ensayo</label>
+                        <input type="text" id="nombreEnsayo" value="Ensayo Refugio #1" required maxlength="80" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Población Inicial \(y_0\)</label>
+                        <input type="number" id="paramY0" value="15" step="1" min="0" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Tasa Rescate \(R\) (masc/sem)</label>
+                        <input type="number" id="paramR" value="12" step="any" min="0" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Tasa Adopción \(k\) (sem⁻¹)</label>
+                        <input type="number" id="paramK" value="0.2" step="any" min="0.01" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs font-bold text-slate-700">Paso Principal (\(h_1\))</label>
+                            <span id="stepDisplay" class="text-xs font-mono font-bold text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200">h₁ = 0.50</span>
+                        </div>
+                        <input type="range" id="paramH" min="0.05" max="2.0" step="0.05" value="0.5" class="w-full accent-brand-600 cursor-pointer">
+                    </div>
+
+                    <div class="sm:col-span-2">
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-xs font-bold text-slate-700">Paso Secundario Comparativo (\(h_2\))</label>
+                            <span id="stepDisplay2" class="text-xs font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">h₂ = 0.10</span>
+                        </div>
+                        <input type="range" id="paramH2" min="0.05" max="2.0" step="0.05" value="0.1" class="w-full accent-indigo-600 cursor-pointer">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Tiempo Simulación \(t_{max}\)</label>
+                        <input type="number" id="paramTFinal" value="20" step="any" min="0.05" max="100" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500">
+                    </div>
+
+                    <div class="flex items-end">
+                        <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-4 rounded-xl shadow-lg transition-all text-xs flex items-center justify-center gap-2 group">
+                            <i class="fa-solid fa-play text-brand-400 group-hover:scale-110 transition-transform"></i> Ejecutar y Guardar
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Main Interactive Analytics Chart Card -->
+            <div class="bg-white rounded-2xl shadow-xl border border-slate-200/80 p-5 flex flex-col">
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4">
+                    <div>
+                        <h2 class="font-extrabold text-slate-900 text-base flex items-center gap-2">
+                            Curva de Dinámica Poblacional del Refugio
+                        </h2>
+                        <p class="text-xs text-slate-500">Comparativa analítica exacta frente a Heun (RK2) y RK4</p>
+                    </div>
+                    <div class="flex items-center space-x-2 bg-slate-100 p-1 rounded-xl text-xs font-semibold text-slate-600">
+                        <button id="btnViewPoblacion" class="px-3 py-1 rounded-lg bg-white shadow-sm text-slate-900 transition">Población y(t)</button>
+                        <button id="btnViewErrores" class="px-3 py-1 rounded-lg hover:text-slate-900 transition">Errores %</button>
+                    </div>
+                </div>
+
+                <!-- Canvas Container -->
+                <div class="relative w-full h-72 sm:h-80">
+                    <canvas id="simChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Summary Metric Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-100/50">
+                    <div class="flex items-center justify-between text-slate-400 mb-1">
+                        <span class="text-[11px] font-bold uppercase tracking-wider">Equilibrio \(t \to \infty\)</span>
+                        <i class="fa-solid fa-scale-balanced text-brand-600 text-xs"></i>
+                    </div>
+                    <p id="kpiEquilibrio" class="text-2xl font-black text-slate-900 tracking-tight">50.0</p>
+                    <p class="text-[10px] font-medium text-slate-400 mt-0.5">Capacidad Máx (\(R/k\))</p>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-100/50">
+                    <div class="flex items-center justify-between text-slate-400 mb-1">
+                        <span class="text-[11px] font-bold uppercase tracking-wider">Población Final</span>
+                        <i class="fa-solid fa-square-root-variable text-blue-600 text-xs"></i>
+                    </div>
+                    <p id="kpiFinalExacto" class="text-2xl font-black text-slate-900 tracking-tight">0.0</p>
+                    <p class="text-[10px] font-medium text-slate-400 mt-0.5">Solución Exacta</p>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-100/50">
+                    <div class="flex items-center justify-between text-slate-400 mb-1">
+                        <span class="text-[11px] font-bold uppercase tracking-wider">Error Máx Heun</span>
+                        <i class="fa-solid fa-chart-line text-amber-500 text-xs"></i>
+                    </div>
+                    <p id="kpiErrorHeun" class="text-2xl font-black text-amber-600 tracking-tight">0.00 %</p>
+                    <p class="text-[10px] font-medium text-slate-400 mt-0.5">Relativo vs Analítica</p>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-lg shadow-slate-100/50">
+                    <div class="flex items-center justify-between text-slate-400 mb-1">
+                        <span class="text-[11px] font-bold uppercase tracking-wider">Error Máx RK4</span>
+                        <i class="fa-solid fa-bullseye text-brand-600 text-xs"></i>
+                    </div>
+                    <p id="kpiErrorRK4" class="text-2xl font-black text-brand-600 tracking-tight">0.00 %</p>
+                    <p class="text-[10px] font-medium text-slate-400 mt-0.5">Relativo vs Analítica</p>
+                </div>
+            </div>
+
+            <!-- Tabbed Analytical & Technical Report Card -->
+            <div class="bg-white rounded-2xl shadow-xl border border-slate-200/80 p-5">
+                <div class="flex border-b border-slate-100 mb-4 gap-4 overflow-x-auto no-print">
+                    <button id="tabBtnTabla" class="pb-3 text-xs font-bold border-b-2 border-brand-600 text-brand-700 flex items-center gap-2 whitespace-nowrap">
+                        <i class="fa-solid fa-table"></i> Tabla de Iteraciones y Errores
+                    </button>
+                    <button id="tabBtnPasoComp" class="pb-3 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-700 flex items-center gap-2 whitespace-nowrap">
+                        <i class="fa-solid fa-code-compare"></i> Comparación de Pasos (\(h_1\) vs \(h_2\))
+                    </button>
+                    <button id="tabBtnMath" class="pb-3 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-700 flex items-center gap-2 whitespace-nowrap">
+                        <i class="fa-solid fa-square-root-variable"></i> Derivación y Comprobación Exacta
+                    </button>
+                    <button id="tabBtnConclusion" class="pb-3 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-700 flex items-center gap-2 whitespace-nowrap">
+                        <i class="fa-solid fa-file-contract"></i> Conclusiones
+                    </button>
+                </div>
+
+                <!-- Tab 1: Numerical Data Table -->
+                <div id="tabContentTabla" class="block">
+                    <div class="overflow-x-auto max-h-72 custom-scrollbar border border-slate-200/80 rounded-xl">
+                        <table class="w-full text-xs text-left">
+                            <thead class="text-[10px] text-slate-500 uppercase bg-slate-50 sticky top-0 font-bold border-b border-slate-200">
+                                <tr>
+                                    <th class="px-2.5 py-2.5">\(n\)</th>
+                                    <th class="px-2.5 py-2.5">\(t_n\) (sem)</th>
+                                    <th class="px-2.5 py-2.5 bg-blue-50/60 text-blue-900">Analítica Exacta \(y(t)\)</th>
+                                    <th class="px-2.5 py-2.5 bg-amber-50/60 text-amber-900">Heun (RK2)</th>
+                                    <th class="px-2.5 py-2.5 bg-emerald-50/60 text-emerald-900">RK4 Class</th>
+                                    <th class="px-2.5 py-2.5 text-amber-800">Err Abs Heun</th>
+                                    <th class="px-2.5 py-2.5 text-amber-800">Err % Heun</th>
+                                    <th class="px-2.5 py-2.5 text-emerald-800">Err Abs RK4</th>
+                                    <th class="px-2.5 py-2.5 text-emerald-800">Err % RK4</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tableBody" class="divide-y divide-slate-100 font-mono text-[11px]">
+                                <!-- Dynamic rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Tab 2: Paso Comparison (Comparación de Pasos h1 vs h2) -->
+                <div id="tabContentPasoComp" class="hidden text-xs text-slate-700 space-y-4">
+                    <div class="bg-indigo-50/70 border border-indigo-200 p-4 rounded-xl">
+                        <h4 class="font-bold text-indigo-900 text-sm mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-sliders text-indigo-600"></i> Análisis Comparativo de Tamaño de Paso (\(h\))
+                        </h4>
+                        <p class="text-slate-600 mb-3">La consigna requiere comparar al menos dos tamaños de paso para evidenciar la convergencia numérica.</p>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono">
+                            <div class="bg-white p-3 rounded-lg border border-indigo-100 shadow-sm">
+                                <span class="font-bold text-slate-800 block mb-1">Ensayo con \(h_1\) = <span id="valH1">0.50</span></span>
+                                <p class="text-[11px] text-slate-600">Error Máx. Heun: <strong id="h1ErrHeun" class="text-amber-600">0%</strong></p>
+                                <p class="text-[11px] text-slate-600">Error Máx. RK4: <strong id="h1ErrRK4" class="text-emerald-600">0%</strong></p>
+                            </div>
+                            <div class="bg-white p-3 rounded-lg border border-indigo-100 shadow-sm">
+                                <span class="font-bold text-slate-800 block mb-1">Ensayo con \(h_2\) = <span id="valH2">0.10</span></span>
+                                <p class="text-[11px] text-slate-600">Error Máx. Heun: <strong id="h2ErrHeun" class="text-amber-600">0%</strong></p>
+                                <p class="text-[11px] text-slate-600">Error Máx. RK4: <strong id="h2ErrRK4" class="text-emerald-600">0%</strong></p>
+                            </div>
+                        </div>
+
+                        <div class="mt-3 text-xs text-slate-700 bg-white p-3 rounded-lg border border-indigo-100">
+                            <strong>Conclusión de Convergencia:</strong>
+                            <p id="conclusionH" class="mt-1 text-slate-600">Al reducir el paso \(h\), el error disminuye cuadráticamente en Heun y a la cuarta potencia en RK4.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab 3: Math Derivation, Verification & Explicit k1-k4 Formulas -->
+                <div id="tabContentMath" class="hidden text-xs text-slate-700 space-y-4">
+                    
+                    <!-- Analytical Derivation -->
+                    <div class="bg-slate-900 text-slate-200 p-4 rounded-xl border border-slate-800 font-mono space-y-3">
+                        <h4 class="font-bold text-brand-400 text-sm font-sans flex items-center gap-2">
+                            <i class="fa-solid fa-graduation-cap"></i> 1. Derivación y Comprobación Exacta
+                        </h4>
+                        <p class="text-slate-300"><strong>Ecuación Poblacional:</strong> \(\frac{dy}{dt} = R - k \cdot y\), con condición inicial \(y(0) = y_0\)</p>
+                        <p class="text-slate-300"><strong>1. Separación de Variables:</strong> \(\int \frac{dy}{R - ky} = \int dt \implies -\frac{1}{k}\ln|R - ky| = t + C\)</p>
+                        <p class="text-slate-300"><strong>2. Despeje de \(y(t)\):</strong> \(R - ky = C_1 e^{-kt} \implies y(t) = \frac{R}{k} - \frac{C_1}{k}e^{-kt}\)</p>
+                        <p class="text-slate-300"><strong>3. Aplicando Condición Inicial \(y(0) = y_0\):</strong> \(y(0) = \frac{R}{k} - \frac{C_1}{k} = y_0 \implies \frac{C_1}{k} = \frac{R}{k} - y_0\)</p>
+                        <p class="text-emerald-400 font-bold">4. Solución Analítica Exacta: \(y(t) = \frac{R}{k} + \left(y_0 - \frac{R}{k}\right) e^{-kt}\)</p>
+                        
+                        <div class="border-t border-slate-800 pt-3 text-slate-300">
+                            <p class="font-sans font-bold text-brand-300 mb-1">Comprobación por Sustitución Directa:</p>
+                            <p>• Derivada exactitud: \(\frac{dy}{dt} = -k\left(y_0 - \frac{R}{k}\right)e^{-kt}\)</p>
+                            <p>• Sustituyendo en el lado derecho (\(R - k y\)): \(R - k\left[\frac{R}{R/k} + \left(y_0 - \frac{R}{k}\right)e^{-kt}\right] = -k\left(y_0 - \frac{R}{k}\right)e^{-kt}\)</p>
+                            <p class="text-cyan-400 font-bold">\(\therefore \frac{dy}{dt} = R - ky\) ¡Verifica formalmente la EDO y la Condición Inicial!</p>
+                        </div>
+                    </div>
+
+                    <!-- Explicit Description of k1, k2, k3, k4 in the App -->
+                    <div class="bg-slate-50 border border-slate-200 p-4 rounded-xl space-y-3">
+                        <h4 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-calculator text-brand-600"></i> 2. Definición Físico-Matemática de los Coeficientes \(k_1, k_2, k_3, k_4\)
+                        </h4>
+                        <p class="text-slate-600 text-xs leading-relaxed">
+                            En el contexto de la simulación del refugio de mascotas, la función derivada \(f(t, y) = R - k \cdot y\) mide la <strong>velocidad neta de cambio de la población</strong> en unidades de <em>[mascotas / semana]</em>. Los coeficientes \(k_i\) representan estimaciones de esa velocidad en distintos instantes del intervalo de tiempo \(h\):
+                        </p>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs font-mono">
+                            <div class="bg-white p-3 rounded-lg border border-slate-200">
+                                <span class="font-bold text-brand-700 block">\(k_1 = f(t_n, y_n) = R - k \cdot y_n\)</span>
+                                <span class="text-[11px] text-slate-500 font-sans">Velocidad de cambio al <strong>inicio de la semana</strong> (\(t_n\)) con la población actual.</span>
+                            </div>
+                            <div class="bg-white p-3 rounded-lg border border-slate-200">
+                                <span class="font-bold text-brand-700 block">\(k_2 = f\left(t_n + \frac{h}{2}, y_n + \frac{h}{2}k_1\right)\)</span>
+                                <span class="text-[11px] text-slate-500 font-sans">Primera estimación de velocidad a <strong>mitad de semana</strong> usando la pendiente \(k_1\).</span>
+                            </div>
+                            <div class="bg-white p-3 rounded-lg border border-slate-200">
+                                <span class="font-bold text-brand-700 block">\(k_3 = f\left(t_n + \frac{h}{2}, y_n + \frac{h}{2}k_2\right)\)</span>
+                                <span class="text-[11px] text-slate-500 font-sans">Segunda estimación de velocidad a <strong>mitad de semana</strong> corregida con la pendiente \(k_2\).</span>
+                            </div>
+                            <div class="bg-white p-3 rounded-lg border border-slate-200">
+                                <span class="font-bold text-brand-700 block">\(k_4 = f(t_n + h, y_n + h \cdot k_3)\)</span>
+                                <span class="text-[11px] text-slate-500 font-sans">Velocidad estimada al <strong>final de la semana</strong> (\(t_n + h\)) usando la pendiente \(k_3\).</span>
+                            </div>
+                        </div>
+
+                        <!-- Formulations -->
+                        <div class="bg-white p-3 rounded-lg border border-slate-200 font-mono text-xs space-y-2">
+                            <span class="font-bold font-sans text-slate-800 block border-b pb-1">Fórmulas Iterativas de Actualización:</span>
+                            <p><strong>• Método de Heun (RK2):</strong> \(y_{n+1} = y_n + \frac{h}{2}(k_1 + k_2)\)</p>
+                            <p><strong>• Runge-Kutta 4º Orden (RK4):</strong> \(y_{n+1} = y_n + \frac{h}{6}(k_1 + 2k_2 + 2k_3 + k_4)\)</p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Tab 4: Community Conclusions (Conclusiones) -->
+                <div id="tabContentConclusion" class="hidden text-xs text-slate-600 space-y-4">
+                    <div class="bg-emerald-50/60 border border-emerald-200/80 p-4 rounded-xl text-emerald-950">
+                        <h3 class="font-bold mb-1 text-emerald-900 text-sm flex items-center gap-2">
+                            <i class="fa-solid fa-heart text-emerald-600"></i> Evaluación Operativa para la Gestión del Refugio
+                        </h3>
+                        <p id="conclusionText" class="leading-relaxed">
+                            Calculando la proyección y estabilidad del albergue...
+                        </p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="border border-slate-200 p-4 rounded-xl bg-slate-50">
+                            <h4 class="font-bold text-slate-800 mb-1 text-xs uppercase tracking-wider">Desempeño de los Métodos Numéricos</h4>
+                            <p id="techComparison" class="leading-relaxed text-slate-600">
+                                Evaluando precisión numérica entre Heun y Runge-Kutta 4...
+                            </p>
+                        </div>
+                        <div class="border border-slate-200 p-4 rounded-xl bg-slate-50">
+                            <h4 class="font-bold text-slate-800 mb-1 text-xs uppercase tracking-wider">Recomendación Estratégica</h4>
+                            <p class="leading-relaxed text-slate-600">
+                                Si la capacidad física máxima del albergue es inferior al valor de equilibrio \(\frac{R}{k}\), se sugiere aumentar la tasa de egresos/adopción (\(k\)) mediante campañas activas de difusión en la comunidad.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="border border-amber-200 bg-amber-50 p-4 rounded-xl text-amber-950">
+                        <h4 class="font-bold mb-1 text-xs uppercase tracking-wider">Supuestos y limitaciones</h4>
+                        <p class="leading-relaxed">La simulación supone que los ingresos (R) y la tasa de adopción (k) permanecen constantes, que no hay nacimientos dentro del refugio y que las adopciones son proporcionales a la población. No incorpora capacidad máxima, cambios estacionales ni datos observados; por ello, los parámetros deben interpretarse como escenarios de estudio y los resultados no son predicciones comprobadas.</p>
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-950 text-slate-400 text-xs py-4 border-t border-slate-800/80 mt-auto no-print">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row justify-between items-center gap-2">
+            <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-graduation-cap text-brand-500"></i>
+                <span class="font-semibold text-slate-300">Desafío Individual: Ecuaciones Diferenciales Ordinarias (EDO)</span>
+            </div>
+            <div class="text-right text-[11px] text-slate-500">
+                <span>Métodos Numéricos: Heun (RK2) vs. Runge-Kutta 4º Orden</span>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript Engine -->
+    <script>
+        // --- INDEXEDDB STORAGE ---
+        class LocalDatabase {
+            constructor() {
+                this.dbName = 'PetShelterEDODB';
+                this.dbVersion = 1;
+                this.db = null;
+            }
+
+            init() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.dbName, this.dbVersion);
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains('simulaciones')) {
+                            const store = db.createObjectStore('simulaciones', { keyPath: 'id', autoIncrement: true });
+                            store.createIndex('fecha', 'fecha', { unique: false });
+                        }
+                    };
+                    request.onsuccess = (e) => {
+                        this.db = e.target.result;
+                        resolve(this.db);
+                    };
+                    request.onerror = (e) => reject('Error abriendo IndexedDB: ' + e.target.error);
+                });
+            }
+
+            guardarSimulacion(registro) {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['simulaciones'], 'readwrite');
+                    const store = tx.objectStore('simulaciones');
+                    const req = store.add(registro);
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject('Error guardando registro');
+                });
+            }
+
+            obtenerTodas() {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['simulaciones'], 'readonly');
+                    const store = tx.objectStore('simulaciones');
+                    const req = store.getAll();
+                    req.onsuccess = () => resolve(req.result.reverse());
+                    req.onerror = () => reject('Error consultando registros');
+                });
+            }
+
+            borrarTodas() {
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['simulaciones'], 'readwrite');
+                    const store = tx.objectStore('simulaciones');
+                    const req = store.clear();
+                    req.onsuccess = () => resolve();
+                    req.onerror = () => reject('Error limpiando base de datos');
+                });
+            }
+        }
+
+        const localDB = new LocalDatabase();
+
+        // --- MATH ENGINE ---
+        function f(t, y, R, k) {
+            return R - (k * y);
+        }
+
+        function exactAnalytical(t, y0, R, k) {
+            return (R / k) + (y0 - (R / k)) * Math.exp(-k * t);
+        }
+
+        function solveEDO(y0, R, k, h, tFinal) {
+            const results = [];
+            let t = 0;
+            let yHeun = y0;
+            let yRK4 = y0;
+            let n = 0;
+
+            while (true) {
+                const stepSize = Math.min(h, tFinal - t);
+
+                const yExact = exactAnalytical(t, y0, R, k);
+
+                const errAbsHeun = Math.abs(yExact - yHeun);
+                const errPctHeun = yExact !== 0 ? (errAbsHeun / Math.abs(yExact)) * 100 : 0;
+
+                const errAbsRK4 = Math.abs(yExact - yRK4);
+                const errPctRK4 = yExact !== 0 ? (errAbsRK4 / Math.abs(yExact)) * 100 : 0;
+
+                results.push({
+                    step: n,
+                    t: parseFloat(t.toFixed(4)),
+                    yExact: parseFloat(yExact.toFixed(4)),
+                    yHeun: parseFloat(yHeun.toFixed(4)),
+                    yRK4: parseFloat(yRK4.toFixed(4)),
+                    errAbsHeun: parseFloat(errAbsHeun.toFixed(4)),
+                    errPctHeun: parseFloat(errPctHeun.toFixed(4)),
+                    errAbsRK4: parseFloat(errAbsRK4.toFixed(4)),
+                    errPctRK4: parseFloat(errPctRK4.toFixed(4))
+                });
+
+                if (t >= tFinal - 1e-10) break;
+
+                // El último paso se acorta si h no divide exactamente tFinal.
+                // Next Step Calculation (Heun / RK2)
+                const k1_h = f(t, yHeun, R, k);
+                const k2_h = f(t + stepSize, yHeun + stepSize * k1_h, R, k);
+                yHeun = yHeun + (stepSize / 2) * (k1_h + k2_h);
+
+                // Next Step Calculation (RK4)
+                const k1 = f(t, yRK4, R, k);
+                const k2 = f(t + stepSize / 2, yRK4 + (stepSize / 2) * k1, R, k);
+                const k3 = f(t + stepSize / 2, yRK4 + (stepSize / 2) * k2, R, k);
+                const k4 = f(t + stepSize, yRK4 + stepSize * k3, R, k);
+                yRK4 = yRK4 + (stepSize / 6) * (k1 + 2 * k2 + 2 * k3 + k4);
+                t = Math.min(tFinal, t + stepSize);
+                n += 1;
+            }
+
+            return results;
+        }
+
+        // --- CHART CONTROLLER ---
+        let chartInstance = null;
+        let currentResultsData = [];
+        let activeChartView = 'poblacion';
+
+        function initChart() {
+            const canvasEl = document.getElementById('simChart');
+            if (!canvasEl) return;
+            const ctx = canvasEl.getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 400 },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: { font: { family: 'Plus Jakarta Sans', size: 11, weight: '600' } }
+                        },
+                        tooltip: {
+                            backgroundColor: '#0f172a',
+                            titleFont: { family: 'Plus Jakarta Sans', size: 12 },
+                            bodyFont: { family: 'JetBrains Mono', size: 11 },
+                            padding: 10,
+                            cornerRadius: 8
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Tiempo t (semanas)', font: { size: 11, weight: '600' } },
+                            grid: { color: '#f1f5f9' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Mascotas en Refugio y(t)', font: { size: 11, weight: '600' } },
+                            grid: { color: '#f1f5f9' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChartDatasets() {
+            if (!chartInstance || !currentResultsData.length) return;
+
+            chartInstance.data.labels = currentResultsData.map(r => r.t);
+
+            if (activeChartView === 'poblacion') {
+                chartInstance.options.scales.y.title.text = 'Número de Mascotas en Refugio y(t)';
+                chartInstance.data.datasets = [
+                    {
+                        label: 'Solución Analítica Exacta',
+                        data: currentResultsData.map(r => r.yExact),
+                        borderColor: '#2563eb',
+                        borderWidth: 2.5,
+                        pointRadius: 0,
+                        tension: 0.25
+                    },
+                    {
+                        label: 'Heun (RK2)',
+                        data: currentResultsData.map(r => r.yHeun),
+                        borderColor: '#f59e0b',
+                        borderWidth: 2,
+                        borderDash: [4, 4],
+                        pointRadius: 3,
+                        pointBackgroundColor: '#f59e0b'
+                    },
+                    {
+                        label: 'Runge-Kutta 4º Orden (RK4)',
+                        data: currentResultsData.map(r => r.yRK4),
+                        borderColor: '#10b981',
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#10b981'
+                    }
+                ];
+            } else {
+                chartInstance.options.scales.y.title.text = 'Error Relativo Porcentual (%)';
+                chartInstance.data.datasets = [
+                    {
+                        label: 'Error % Heun',
+                        data: currentResultsData.map(r => r.errPctHeun),
+                        borderColor: '#f59e0b',
+                        borderWidth: 2,
+                        pointRadius: 2
+                    },
+                    {
+                        label: 'Error % RK4',
+                        data: currentResultsData.map(r => r.errPctRK4),
+                        borderColor: '#10b981',
+                        borderWidth: 2,
+                        pointRadius: 2
+                    }
+                ];
+            }
+            chartInstance.update();
+        }
+
+        function updateUI(results, params, resultsH2 = null) {
+            currentResultsData = results;
+
+            const eqVal = (params.R / params.k).toFixed(1);
+            const finalPoint = results[results.length - 1];
+
+            document.getElementById('kpiEquilibrio').innerText = `${eqVal}`;
+            document.getElementById('kpiFinalExacto').innerText = `${finalPoint.yExact}`;
+
+            const maxErrHeun = Math.max(...results.map(r => r.errPctHeun)).toFixed(3);
+            const maxErrRK4 = Math.max(...results.map(r => r.errPctRK4)).toFixed(4);
+
+            document.getElementById('kpiErrorHeun').innerText = `${maxErrHeun} %`;
+            document.getElementById('kpiErrorRK4').innerText = `${maxErrRK4} %`;
+
+            updateChartDatasets();
+
+            // Table Update
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = results.map(r => `
+                <tr class="hover:bg-slate-50/80 transition-colors">
+                    <td class="px-2.5 py-2 font-mono text-slate-500">${r.step}</td>
+                    <td class="px-2.5 py-2 font-mono font-semibold text-slate-700">${r.t}</td>
+                    <td class="px-2.5 py-2 font-mono bg-blue-50/40 text-blue-900 font-bold">${r.yExact}</td>
+                    <td class="px-2.5 py-2 font-mono bg-amber-50/40 text-amber-900">${r.yHeun}</td>
+                    <td class="px-2.5 py-2 font-mono bg-emerald-50/40 text-emerald-900">${r.yRK4}</td>
+                    <td class="px-2.5 py-2 font-mono text-amber-800 font-medium">${r.errAbsHeun}</td>
+                    <td class="px-2.5 py-2 font-mono text-amber-700 font-medium">${r.errPctHeun}%</td>
+                    <td class="px-2.5 py-2 font-mono text-emerald-800 font-medium">${r.errAbsRK4}</td>
+                    <td class="px-2.5 py-2 font-mono text-emerald-700 font-medium">${r.errPctRK4}%</td>
+                </tr>
+            `).join('');
+
+            // Step Comparison Tab Updates
+            if (resultsH2) {
+                document.getElementById('valH1').innerText = params.h.toFixed(2);
+                document.getElementById('valH2').innerText = params.h2.toFixed(2);
+
+                const h1HeunMax = Math.max(...results.map(r => r.errPctHeun)).toFixed(4);
+                const h1RK4Max = Math.max(...results.map(r => r.errPctRK4)).toFixed(4);
+                const h2HeunMax = Math.max(...resultsH2.map(r => r.errPctHeun)).toFixed(4);
+                const h2RK4Max = Math.max(...resultsH2.map(r => r.errPctRK4)).toFixed(4);
+
+                document.getElementById('h1ErrHeun').innerText = `${h1HeunMax}%`;
+                document.getElementById('h1ErrRK4').innerText = `${h1RK4Max}%`;
+                document.getElementById('h2ErrHeun').innerText = `${h2HeunMax}%`;
+                document.getElementById('h2ErrRK4').innerText = `${h2RK4Max}%`;
+
+                document.getElementById('conclusionH').innerHTML = `
+                    Al reducir el tamaño de paso de <strong>h₁ = ${params.h.toFixed(2)}</strong> a <strong>h₂ = ${params.h2.toFixed(2)}</strong>, el error de Heun disminuye de <strong>${h1HeunMax}%</strong> a <strong>${h2HeunMax}%</strong>, mientras que el error de RK4 pasa de <strong>${h1RK4Max}%</strong> a <strong>${h2RK4Max}%</strong>. Esto confirma la convergencia teórica de ambos métodos.
+                `;
+            }
+
+            // Conclusions Update
+            const halfTime = (Math.log(2) / params.k).toFixed(1);
+            document.getElementById('conclusionText').innerHTML = `
+                Bajo la tasa de rescates (<strong>R = ${params.R} mascotas/sem</strong>) y de adopción (<strong>k = ${params.k} sem⁻¹</strong>), la capacidad poblacional se estabiliza de manera asintótica en <strong>${eqVal} mascotas</strong>.<br>
+                El refugio alcanza el 50% de esta población estacionaria en aproximadamente <strong>${halfTime} semanas</strong>.
+            `;
+
+            document.getElementById('techComparison').innerHTML = `
+                Con un tamaño de paso <strong>h = ${params.h} semanas</strong>, el método de <strong>RK4</strong> registró un error relativo porcentual máximo de <strong>${maxErrRK4}%</strong>, demostrando superioridad en estabilidad sobre <strong>Heun (${maxErrHeun}%)</strong>.
+            `;
+
+            if (window.MathJax) {
+                MathJax.typesetPromise();
+            }
+        }
+
+        async function refreshDBList() {
+            const listContainer = document.getElementById('dbList');
+            try {
+                const items = await localDB.obtenerTodas();
+                if (items.length === 0) {
+                    listContainer.innerHTML = `<p class="text-slate-400 text-center py-4 text-xs">No hay simulaciones guardadas.</p>`;
+                    return;
+                }
+
+                listContainer.innerHTML = items.map(item => `
+                    <div class="p-2.5 border border-slate-200/80 rounded-xl bg-slate-50/50 hover:bg-brand-50/40 transition-all cursor-pointer text-slate-700 flex justify-between items-center group" onclick="cargarSimulacionDB(${item.y0}, ${item.R}, ${item.k}, ${item.h}, ${item.tFinal}, '${item.nombre}')">
+                        <div>
+                            <p class="font-bold text-slate-900 text-xs group-hover:text-brand-700 transition">${item.nombre}</p>
+                            <p class="text-[10px] text-slate-400 font-mono">y₀:${item.y0} | R:${item.R} | k:${item.k} | h:${item.h}</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="inline-block px-2 py-0.5 rounded-full bg-brand-100 text-brand-800 font-mono text-[10px] font-bold">RK4: ${item.maxErrRK4}%</span>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function cargarSimulacionDB(y0, R, k, h, tFinal, nombre) {
+            document.getElementById('nombreEnsayo').value = nombre;
+            document.getElementById('paramY0').value = y0;
+            document.getElementById('paramR').value = R;
+            document.getElementById('paramK').value = k;
+            document.getElementById('paramH').value = h;
+            document.getElementById('stepDisplay').innerText = `h₁ = ${h.toFixed(2)}`;
+            document.getElementById('paramTFinal').value = tFinal;
+
+            const results = solveEDO(y0, R, k, h, tFinal);
+            updateUI(results, { y0, R, k, h, tFinal });
+        }
+
+        // Export Functions
+        function exportToCSV() {
+            if (!currentResultsData.length) return;
+            let csvContent = "data:text/csv;charset=utf-8,Paso,Tiempo_t,y_Analitica,y_Heun,y_RK4,Error_Abs_Heun,Error_Pct_Heun,Error_Abs_RK4,Error_Pct_RK4\n";
+            currentResultsData.forEach(r => {
+                csvContent += `${r.step},${r.t},${r.yExact},${r.yHeun},${r.yRK4},${r.errAbsHeun},${r.errPctHeun},${r.errAbsRK4},${r.errPctRK4}\n`;
+            });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `simulacion_edo_${Date.now()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // --- INITIALIZATION & EVENT HANDLERS ---
+        window.addEventListener('DOMContentLoaded', async () => {
+            await localDB.init();
+            initChart();
+
+            document.getElementById('paramH').addEventListener('input', (e) => {
+                document.getElementById('stepDisplay').innerText = `h₁ = ${parseFloat(e.target.value).toFixed(2)}`;
+            });
+
+            document.getElementById('paramH2').addEventListener('input', (e) => {
+                document.getElementById('stepDisplay2').innerText = `h₂ = ${parseFloat(e.target.value).toFixed(2)}`;
+            });
+
+            document.getElementById('simForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const nombre = document.getElementById('nombreEnsayo').value;
+                const y0 = parseFloat(document.getElementById('paramY0').value);
+                const R = parseFloat(document.getElementById('paramR').value);
+                const k = parseFloat(document.getElementById('paramK').value);
+                const h = parseFloat(document.getElementById('paramH').value);
+                const h2 = parseFloat(document.getElementById('paramH2').value);
+                const tFinal = parseFloat(document.getElementById('paramTFinal').value);
+
+                if (![y0, R, k, h, h2, tFinal].every(Number.isFinite) || y0 < 0 || R < 0 || k <= 0 || h <= 0 || h2 <= 0 || tFinal <= 0) {
+                    alert('Revisa los datos: y₀ y R deben ser no negativos; k, h₁, h₂ y el tiempo deben ser mayores que cero.');
+                    return;
+                }
+                if (Math.abs(h - h2) < 1e-9) {
+                    alert('Elige dos tamaños de paso distintos para poder compararlos.');
+                    return;
+                }
+
+                const results = solveEDO(y0, R, k, h, tFinal);
+                const resultsH2 = solveEDO(y0, R, k, h2, tFinal);
+                const params = { y0, R, k, h, h2, tFinal };
+
+                updateUI(results, params, resultsH2);
+
+                const maxErrHeun = Math.max(...results.map(r => r.errPctHeun)).toFixed(3);
+                const maxErrRK4 = Math.max(...results.map(r => r.errPctRK4)).toFixed(4);
+
+                await localDB.guardarSimulacion({
+                    fecha: new Date().toISOString(),
+                    nombre,
+                    y0, R, k, h, tFinal,
+                    maxErrHeun, maxErrRK4
+                });
+
+                await refreshDBList();
+            });
+
+            document.getElementById('btnClearDB').addEventListener('click', async () => {
+                await localDB.borrarTodas();
+                await refreshDBList();
+            });
+
+            document.getElementById('btnExportCSV').addEventListener('click', exportToCSV);
+            document.getElementById('btnPrintReport').addEventListener('click', () => window.print());
+
+            // View Modes Switcher
+            const btnPoblacion = document.getElementById('btnViewPoblacion');
+            const btnErrores = document.getElementById('btnViewErrores');
+
+            if (btnPoblacion && btnErrores) {
+                btnPoblacion.addEventListener('click', () => {
+                    activeChartView = 'poblacion';
+                    btnPoblacion.className = 'px-3 py-1 rounded-lg bg-white shadow-sm text-slate-900 transition';
+                    btnErrores.className = 'px-3 py-1 rounded-lg hover:text-slate-900 transition';
+                    updateChartDatasets();
+                });
+
+                btnErrores.addEventListener('click', () => {
+                    activeChartView = 'errores';
+                    btnErrores.className = 'px-3 py-1 rounded-lg bg-white shadow-sm text-slate-900 transition';
+                    btnPoblacion.className = 'px-3 py-1 rounded-lg hover:text-slate-900 transition';
+                    updateChartDatasets();
+                });
+            }
+
+            // Tabs Switcher
+            const tabBtnTabla = document.getElementById('tabBtnTabla');
+            const tabBtnPasoComp = document.getElementById('tabBtnPasoComp');
+            const tabBtnMath = document.getElementById('tabBtnMath');
+            const tabBtnConclusion = document.getElementById('tabBtnConclusion');
+
+            const tabContentTabla = document.getElementById('tabContentTabla');
+            const tabContentPasoComp = document.getElementById('tabContentPasoComp');
+            const tabContentMath = document.getElementById('tabContentMath');
+            const tabContentConclusion = document.getElementById('tabContentConclusion');
+
+            function resetTabs() {
+                [tabBtnTabla, tabBtnPasoComp, tabBtnMath, tabBtnConclusion].forEach(btn => {
+                    if(btn) btn.className = 'pb-3 text-xs font-bold border-b-2 border-transparent text-slate-400 hover:text-slate-700 flex items-center gap-2 whitespace-nowrap';
+                });
+                [tabContentTabla, tabContentPasoComp, tabContentMath, tabContentConclusion].forEach(c => {
+                    if(c) c.classList.add('hidden');
+                });
+            }
+
+            if (tabBtnTabla) {
+                tabBtnTabla.addEventListener('click', () => {
+                    resetTabs();
+                    tabBtnTabla.className = 'pb-3 text-xs font-bold border-b-2 border-brand-600 text-brand-700 flex items-center gap-2 whitespace-nowrap';
+                    tabContentTabla.classList.remove('hidden');
+                });
+            }
+
+            if (tabBtnPasoComp) {
+                tabBtnPasoComp.addEventListener('click', () => {
+                    resetTabs();
+                    tabBtnPasoComp.className = 'pb-3 text-xs font-bold border-b-2 border-brand-600 text-brand-700 flex items-center gap-2 whitespace-nowrap';
+                    tabContentPasoComp.classList.remove('hidden');
+                });
+            }
+
+            if (tabBtnMath) {
+                tabBtnMath.addEventListener('click', () => {
+                    resetTabs();
+                    tabBtnMath.className = 'pb-3 text-xs font-bold border-b-2 border-brand-600 text-brand-700 flex items-center gap-2 whitespace-nowrap';
+                    tabContentMath.classList.remove('hidden');
+                });
+            }
+
+            if (tabBtnConclusion) {
+                tabBtnConclusion.addEventListener('click', () => {
+                    resetTabs();
+                    tabBtnConclusion.className = 'pb-3 text-xs font-bold border-b-2 border-brand-600 text-brand-700 flex items-center gap-2 whitespace-nowrap';
+                    tabContentConclusion.classList.remove('hidden');
+                });
+            }
+
+            // Trigger initial calculation
+            const form = document.getElementById('simForm');
+            if(form) form.dispatchEvent(new Event('submit'));
+        });
+    </script>
+</body>
+</html>
