@@ -1,4 +1,4 @@
-# Simulación de población y capacidad de un refugio animal
+# Simulación de población y capacidad de un refugio de mascotas
 
 Aplicación educativa para estudiar cómo cambia la población de un refugio comunitario mediante una ecuación diferencial ordinaria de primer orden y comparar sus aproximaciones numéricas.
 
@@ -31,9 +31,4 @@ Los valores iniciales son hipotéticos y se pueden cambiar en la página. El mod
 
 La página carga Tailwind CSS, Font Awesome, Chart.js y MathJax desde CDN, por lo que se requiere conexión a Internet para que todos los estilos, gráficos y fórmulas se muestren correctamente.
 
-## Publicar con GitHub Pages
 
-1. Sube `index.html` y este `README.md` a la raíz de un repositorio de GitHub.
-2. En el repositorio, abre **Settings → Pages**.
-3. En **Build and deployment**, selecciona **Deploy from a branch**, elige la rama `main` y la carpeta `/ (root)`, y guarda.
-4. Cuando GitHub Pages termine de publicar, copia la URL que aparece en esa misma sección.
